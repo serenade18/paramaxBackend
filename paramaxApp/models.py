@@ -1,5 +1,8 @@
+from datetime import timedelta
+
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
+from django.utils import timezone
 
 
 class UserAccountManager(BaseUserManager):
@@ -14,7 +17,8 @@ class UserAccountManager(BaseUserManager):
             email=email,
             name=name,
             user_type=user_type,
-            phone=phone
+            phone=phone,
+            is_active=False
         )
 
         user.set_password(password)
@@ -46,3 +50,12 @@ class UserAccount(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class OTP(models.Model):
+    email = models.EmailField()
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        return timezone.now() < self.created_at + timedelta(minutes=10)  # OTP valid for 10 minutes
