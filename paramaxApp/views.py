@@ -3,10 +3,13 @@ from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from paramaxApp.models import UserAccount, OTP
-from paramaxApp.serializers import UserCreateSerializer, UserAccountSerializer
+from paramaxApp.serializers import UserCreateSerializer, UserAccountSerializer, CustomUserSerializer
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -14,6 +17,13 @@ class UserViewSet(viewsets.ViewSet):
 
     def get_permissions(self):
         return [permission() for permission in self.permission_classes_by_action.get(self.action, self.permission_classes_by_action['default'])]
+
+    def list(self, request):
+        users = UserAccount.objects.all()
+        serializer = UserAccountSerializer(users, many=True, context={"request": request})
+        response_data = serializer.data
+        response_dict = {"error": False, "message": "All Users List Data", "data": response_data}
+        return Response(response_dict)
 
     def create(self, request):
         serializer = UserCreateSerializer(data=request.data)
@@ -205,3 +215,12 @@ class AdminUserViewSet(viewsets.ViewSet):
         user = UserAccount.objects.get(pk=pk)
         user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class UserInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        serializer = CustomUserSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)

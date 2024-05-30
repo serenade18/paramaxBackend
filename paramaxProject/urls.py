@@ -5,7 +5,7 @@ from django.urls import path, include
 from rest_framework import routers
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from paramaxApp.views import UserViewSet, AdminUserViewSet
+from paramaxApp.views import UserViewSet, AdminUserViewSet, UserInfoView
 
 router = routers.DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
@@ -18,4 +18,5 @@ urlpatterns = [
     path('api/refresh_token/', TokenRefreshView.as_view(), name="refresh_token"),
     path('api/verify/', UserViewSet.as_view({'post': 'verify_otp'}), name='verify'),
     path('api/admin/verify/', AdminUserViewSet.as_view({'post': 'verify_otp'}), name='admin-verify'),
+    path('api/userinfo/', UserInfoView.as_view(), name='userinfo'),
 ]
