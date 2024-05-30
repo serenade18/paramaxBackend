@@ -1,29 +1,42 @@
 import random
+from datetime import timedelta
+
 from django.core.mail import send_mail
 from django.contrib.auth.hashers import make_password
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from paramaxApp.models import UserAccount, OTP
-from paramaxApp.serializers import UserCreateSerializer, UserAccountSerializer, CustomUserSerializer
+from paramaxApp.models import UserAccount, OTP, Category
+from paramaxApp.serializers import UserCreateSerializer, UserAccountSerializer, CustomUserSerializer, CategorySerializer
 
 
 class UserViewSet(viewsets.ViewSet):
-    permission_classes_by_action = {'create': [AllowAny], 'verify_otp': [AllowAny], 'default': [IsAuthenticated]}
+    permission_classes_by_action = {'create': [AllowAny], 'list': [IsAdminUser], 'verify_otp': [AllowAny], 'default': [IsAuthenticated]}
 
     def get_permissions(self):
         return [permission() for permission in self.permission_classes_by_action.get(self.action, self.permission_classes_by_action['default'])]
 
     def list(self, request):
-        users = UserAccount.objects.all()
-        serializer = UserAccountSerializer(users, many=True, context={"request": request})
-        response_data = serializer.data
-        response_dict = {"error": False, "message": "All Users List Data", "data": response_data}
-        return Response(response_dict)
+        try:
+            users = UserAccount.objects.all()
+            serializer = UserAccountSerializer(users, many=True, context={"request": request})
+            response_data = serializer.data
+            response_dict = {"error": False, "message": "All Users List Data", "data": response_data}
+
+        except ValidationError as e:
+            response_dict = {"error": True, "message": "Validation Error", "details": str(e)}
+        except Exception as e:
+            response_dict = {"error": True, "message": "An Error Occurred", "details": str(e)}
+
+        return Response(response_dict,
+                        status=status.HTTP_400_BAD_REQUEST if response_dict['error'] else status.HTTP_200_OK)
 
     def create(self, request):
         serializer = UserCreateSerializer(data=request.data)
@@ -52,18 +65,24 @@ class UserViewSet(viewsets.ViewSet):
             serializer.validated_data['is_active'] = False
             serializer.save()
 
-            # Save user data temporarily
-            request.session['temp_user_email'] = email
+            # Save OTP and email in session
+            request.session['otp'] = otp
+            request.session['email'] = email
 
             return Response({'message': 'OTP sent to email'}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def verify_otp(self, request):
         otp = request.data.get('otp')
-        email = request.session.get('temp_user_email')
 
-        if not (otp and email):
-            return Response({'error': 'Missing data'}, status=status.HTTP_400_BAD_REQUEST)
+        if not otp:
+            return Response({'error': 'Missing OTP'}, status=status.HTTP_400_BAD_REQUEST)
+
+        email = request.session.get('email')
+        session_otp = request.session.get('otp')
+
+        if otp != str(session_otp):
+            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             otp_record = OTP.objects.get(email=email, otp=otp)
@@ -82,7 +101,8 @@ class UserViewSet(viewsets.ViewSet):
             return Response({'error': 'User does not exist'}, status=status.HTTP_400_BAD_REQUEST)
 
         # Clear session data and delete OTP
-        del request.session['temp_user_email']
+        del request.session['otp']
+        del request.session['email']
         otp_record.delete()
 
         return Response({'message': 'User activated successfully'}, status=status.HTTP_201_CREATED)
@@ -224,3 +244,80 @@ class UserInfoView(APIView):
         user = request.user
         serializer = CustomUserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class CategoryViewSet(viewsets.ViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        try:
+            categories = Category.objects.all()
+            serializer = CategorySerializer(categories, many=True, context={"request": request})
+            response_data = serializer.data
+            response_dict = {"error": False, "message": "All Categories", "data": response_data}
+
+        except ValidationError as e:
+            response_dict = {"error": True, "message": "Validation Error", "details": str(e)}
+        except Exception as e:
+            response_dict = {"error": True, "message": "An Error Occurred", "details": str(e)}
+
+        return Response(response_dict,
+                        status=status.HTTP_400_BAD_REQUEST if response_dict['error'] else status.HTTP_200_OK)
+
+    def create(self, request):
+        if not request.user.is_staff:
+            return Response({"error": True, "message": "User does not have enough permission to perform this task"},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            serializer = CategorySerializer(data=request.data, context={"request": request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            dict_response = {"error": False, "message": "Category created Successfully"}
+
+        except ValidationError as e:
+            dict_response = {"error": True, "message": "Validation Error", "details": str(e)}
+        except Exception as e:
+            dict_response = {"error": True, "message": "An Error Occurred", "details": str(e)}
+
+        return Response(dict_response,
+                        status=status.HTTP_400_BAD_REQUEST if dict_response['error'] else status.HTTP_201_CREATED)
+
+    def retrieve(self, request, pk=None):
+        queryset = Category.objects.all()
+        categories = get_object_or_404(queryset, pk=pk)
+        serializer = CategorySerializer(categories, context={"request": request})
+
+        return Response({"error": False, "message": "Single Data Fetch", "data": serializer.data})
+
+    def update(self, request, pk=None):
+        if not request.user.is_staff:
+            return Response({"error": True, "message": "User does not have enough permission to perform this task"},
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        try:
+            queryset = Category.objects.all()
+            categories = get_object_or_404(queryset, pk=pk)
+            serializer = CategorySerializer(categories, data=request.data, context={"request": request})
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            dict_response = {"error": False, "message": "Category Updated Successfully"}
+
+        except ValidationError as e:
+            dict_response = {"error": True, "message": "Validation Error", "details": str(e)}
+        except Exception as e:
+            dict_response = {"error": True, "message": "An Error Occurred", "details": str(e)}
+
+        return Response(dict_response,
+                            status=status.HTTP_400_BAD_REQUEST if dict_response['error'] else status.HTTP_201_CREATED)
+
+    def destroy(self, request, pk=None):
+        if not request.user.is_staff:
+            return Response({"error": True, "message": "User does not have enough permission to perform this task"},\
+                            status=status.HTTP_401_UNAUTHORIZED)
+
+        queryset = Category.objects.all()
+        categories = get_object_or_404(queryset, pk=pk)
+        categories.delete()
+        return Response({"error": False, "message": "News Deleted"})

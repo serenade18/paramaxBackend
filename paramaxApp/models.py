@@ -59,3 +59,11 @@ class OTP(models.Model):
 
     def is_valid(self):
         return timezone.now() < self.created_at + timedelta(minutes=10)  # OTP valid for 10 minutes
+
+
+class Category(models.Model):
+    id = models.AutoField(primary_key=True)
+    category_name = models.CharField(max_length=255)
+    category_icon = models.ImageField(upload_to='category-icons/', null=True, blank=True)
+    added_on = models.DateTimeField(auto_now_add=True)
+    objects = models.Manager()
