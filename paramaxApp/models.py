@@ -67,3 +67,12 @@ class Category(models.Model):
     category_icon = models.ImageField(upload_to='category-icons/', null=True, blank=True)
     added_on = models.DateTimeField(auto_now_add=True)
     objects = models.Manager()
+
+
+class Services(models.Model):
+    id = models.AutoField(primary_key=True)
+    service_name = models.CharField(max_length=255)
+    service_description = models.TextField()
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    added_on = models.DateTimeField(auto_now_add=True)
+    objects = models.Manager()

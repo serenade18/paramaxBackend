@@ -7,12 +7,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 
-from paramaxApp.views import UserViewSet, AdminUserViewSet, UserInfoView, CategoryViewSet
+from paramaxApp.views import UserViewSet, AdminUserViewSet, UserInfoView, CategoryViewSet, ServicesViewSet
 
 router = routers.DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 router.register(r'admin/users', AdminUserViewSet, basename='admin-user')
 router.register(r'category', CategoryViewSet, basename='category')
+router.register(r'services', ServicesViewSet, basename='services')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

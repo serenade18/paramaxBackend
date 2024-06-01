@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from paramaxApp.models import Category
+from paramaxApp.models import Category, Services
 
 User = get_user_model()
 
@@ -40,4 +40,10 @@ class UserAccountSerializer(serializers.ModelSerializer):
 class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
+        fields = "__all__"
+
+
+class ServiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Services
         fields = "__all__"
