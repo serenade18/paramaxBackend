@@ -71,6 +71,7 @@ class Category(models.Model):
 
 class Services(models.Model):
     id = models.AutoField(primary_key=True)
+    servie_image = models.ImageField(upload_to='service-images/', null=True, blank=True)
     service_name = models.CharField(max_length=255)
     service_description = models.TextField()
     category = models.ForeignKey(Category, on_delete=models.CASCADE)

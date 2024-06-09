@@ -203,6 +203,7 @@ class AdminUserViewSet(viewsets.ViewSet):
         # Activate the user and set them as admin
         try:
             user = UserAccount.objects.get(email=email)
+            user.is_superuser= True
             user.is_active = True
             user.is_staff = True
             user.user_type = 'admin'
@@ -297,7 +298,13 @@ class CategoryViewSet(viewsets.ViewSet):
         categories = get_object_or_404(queryset, pk=pk)
         serializer = CategorySerializer(categories, context={"request": request})
 
-        return Response({"error": False, "message": "Single Data Fetch", "data": serializer.data})
+        serializer_data = serializer.data
+        # return services associated with the category
+        services = Services.objects.filter(category_id=serializer_data["id"])
+        services_serializer = ServiceSerializer(services, many=True)
+        serializer_data["services"] = services_serializer.data
+
+        return Response({"error": False, "message": "Single Data Fetch", "data": serializer_data})
 
     def update(self, request, pk=None):
         if not request.user.is_staff:
