@@ -6,7 +6,7 @@ from django.contrib.auth.hashers import make_password
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
@@ -16,6 +16,32 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from paramaxApp.models import UserAccount, OTP, Category, Services
 from paramaxApp.serializers import UserCreateSerializer, UserAccountSerializer, CustomUserSerializer, \
     CategorySerializer, ServiceSerializer
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def search(request):
+    query = request.GET.get('query', '')
+
+    if not query:
+        return Response({"error": True, "message": "Query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        categories = Category.objects.filter(category_name__icontains=query)
+        services = Services.objects.filter(service_name__icontains=query)
+
+        category_serializer = CategorySerializer(categories, many=True, context={"request": request})
+        service_serializer = ServiceSerializer(services, many=True, context={"request": request})
+
+        response_data = {
+            "categories": category_serializer.data,
+            "services": service_serializer.data
+        }
+
+        return Response({"error": False, "message": "Search Results", "data": response_data}, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": True, "message": "An error occurred", "details": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class UserViewSet(viewsets.ViewSet):

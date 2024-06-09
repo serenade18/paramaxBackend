@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
 
-from paramaxApp.views import UserViewSet, AdminUserViewSet, UserInfoView, CategoryViewSet, ServicesViewSet
+from paramaxApp.views import UserViewSet, AdminUserViewSet, UserInfoView, CategoryViewSet, ServicesViewSet, search
 
 router = routers.DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
@@ -19,6 +19,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     path('api/gettoken/', TokenObtainPairView.as_view(), name="gettoken"),
+    path('api/search/', search, name='search'),
     path('api/refresh_token/', TokenRefreshView.as_view(), name="refresh_token"),
     path('api/verify/', UserViewSet.as_view({'post': 'verify_otp'}), name='verify'),
     path('api/admin/verify/', AdminUserViewSet.as_view({'post': 'verify_otp'}), name='admin-verify'),
