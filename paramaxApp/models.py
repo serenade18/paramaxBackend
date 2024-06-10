@@ -77,3 +77,14 @@ class Services(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     added_on = models.DateTimeField(auto_now_add=True)
     objects = models.Manager()
+
+
+class Booking(models.Model):
+    id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(UserAccount, on_delete=models.CASCADE, default=None)
+    service = models.ForeignKey(Services, on_delete=models.CASCADE, default=None)
+    date = models.DateField(null=True, blank=True)
+    time = models.CharField(max_length=255, null=True, blank=True)
+    notes = models.TextField()
+    added_on = models.DateTimeField(auto_now_add=True)
+    objects = models.Manager()

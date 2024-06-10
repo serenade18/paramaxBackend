@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from paramaxApp.models import Category, Services
+from paramaxApp.models import Category, Services, Booking
 
 User = get_user_model()
 
@@ -55,4 +55,16 @@ class ServiceSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         response = super().to_representation(instance)
         response["category"] = CategorySerializer(instance.category).data
+        return response
+
+
+class BookingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Booking
+        fields = "__all__"
+
+    def to_representation(self, instance):
+        response = super().to_representation(instance)
+        response["user"] = UserAccountSerializer(instance.user).data
+        response["service"] = ServiceSerializer(instance.service).data
         return response

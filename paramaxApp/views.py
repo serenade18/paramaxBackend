@@ -13,9 +13,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from paramaxApp.models import UserAccount, OTP, Category, Services
+from paramaxApp.models import UserAccount, OTP, Category, Services, Booking
 from paramaxApp.serializers import UserCreateSerializer, UserAccountSerializer, CustomUserSerializer, \
-    CategorySerializer, ServiceSerializer
+    CategorySerializer, ServiceSerializer, BookingsSerializer
 
 
 @api_view(['GET'])
@@ -27,14 +27,14 @@ def search(request):
         return Response({"error": True, "message": "Query parameter is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        categories = Category.objects.filter(category_name__icontains=query)
+        # categories = Category.objects.filter(category_name__icontains=query)
         services = Services.objects.filter(service_name__icontains=query)
 
-        category_serializer = CategorySerializer(categories, many=True, context={"request": request})
+        # category_serializer = CategorySerializer(categories, many=True, context={"request": request})
         service_serializer = ServiceSerializer(services, many=True, context={"request": request})
 
         response_data = {
-            "categories": category_serializer.data,
+            # "categories": category_serializer.data,
             "services": service_serializer.data
         }
 
@@ -439,3 +439,103 @@ class ServicesViewSet(viewsets.ViewSet):
         services = get_object_or_404(queryset, pk=pk)
         services.delete()
         return Response({"error": False, "message": "Service Deleted"})
+
+
+class BookingViewSet(viewsets.ViewSet):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        # Check if the user is a staff member
+        is_staff = request.user.is_staff
+
+        if is_staff:
+            # User is a staff member, so they can access all bookings
+            bookings = Booking.objects.all().order_by('-id')
+        else:
+            # User is not a staff member, so they can only access their bookings
+            bookings = Booking.objects.filter(user=request.user).order_by('-id')
+
+        serializer = BookingsSerializer(bookings, many=True, context={"request": request})
+        response_dict = {"error": False, "message": "Bookings List Data", "data": serializer.data}
+        return Response(response_dict, status=status.HTTP_200_OK)
+
+    def create(self, request):
+        serializer = BookingsSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            response_dict = {"error": False, "message": "Booking Created Successfully", "data": serializer.data}
+            return Response(response_dict, status=status.HTTP_201_CREATED)
+        response_dict = {"error": True, "message": "Booking Creation Failed", "details": serializer.errors}
+        return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+
+    def retrieve(self, request, pk=None):
+        try:
+            # Check if the user is a staff member
+            is_staff = request.user.is_staff
+
+            # Filter bookings based on user role
+            if is_staff:
+                booking = Booking.objects.get(pk=pk)
+            else:
+                booking = Booking.objects.get(pk=pk, user=request.user)
+
+            serializer = BookingsSerializer(booking, context={"request": request})
+            response_dict = {"error": False, "message": "Booking Data", "data": serializer.data}
+            return Response(response_dict, status=status.HTTP_200_OK)
+        except Booking.DoesNotExist:
+            response_dict = {"error": True, "message": "Booking not found"}
+            return Response(response_dict, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            response_dict = {"error": True, "message": "An error occurred", "details": str(e)}
+            return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+
+    def update(self, request, pk=None):
+        try:
+            booking = Booking.objects.get(pk=pk)
+            if request.user.is_staff or booking.user == request.user:
+                serializer = BookingsSerializer(booking, data=request.data, partial=False)
+                if serializer.is_valid():
+                    serializer.save()
+                    response_dict = {"error": False, "message": "Booking Updated Successfully", "data": serializer.data}
+                    return Response(response_dict, status=status.HTTP_200_OK)
+                response_dict = {"error": True, "message": "Booking Update Failed", "details": serializer.errors}
+                return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                response_dict = {"error": True, "message": "You do not have permission to update this booking"}
+                return Response(response_dict, status=status.HTTP_403_FORBIDDEN)
+        except Booking.DoesNotExist:
+            response_dict = {"error": True, "message": "Booking not found"}
+            return Response(response_dict, status=status.HTTP_404_NOT_FOUND)
+
+    def partial_update(self, request, pk=None):
+        try:
+            booking = Booking.objects.get(pk=pk)
+            if request.user.is_staff or booking.user == request.user:
+                serializer = BookingsSerializer(booking, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    response_dict = {"error": False, "message": "Booking Updated Successfully", "data": serializer.data}
+                    return Response(response_dict, status=status.HTTP_200_OK)
+                response_dict = {"error": True, "message": "Booking Update Failed", "details": serializer.errors}
+                return Response(response_dict, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                response_dict = {"error": True, "message": "You do not have permission to update this booking"}
+                return Response(response_dict, status=status.HTTP_403_FORBIDDEN)
+        except Booking.DoesNotExist:
+            response_dict = {"error": True, "message": "Booking not found"}
+            return Response(response_dict, status=status.HTTP_404_NOT_FOUND)
+
+    def destroy(self, request, pk=None):
+        try:
+            booking = Booking.objects.get(pk=pk)
+            if request.user.is_staff or booking.user == request.user:
+                booking.delete()
+                response_dict = {"error": False, "message": "Booking Deleted Successfully"}
+                return Response(response_dict, status=status.HTTP_204_NO_CONTENT)
+            else:
+                response_dict = {"error": True, "message": "You do not have permission to delete this booking"}
+                return Response(response_dict, status=status.HTTP_403_FORBIDDEN)
+        except Booking.DoesNotExist:
+            response_dict = {"error": True, "message": "Booking not found"}
+            return Response(response_dict, status=status.HTTP_404_NOT_FOUND)
